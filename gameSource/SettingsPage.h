@@ -125,6 +125,7 @@ class SettingsPage : public GamePage, public ActionListener {
         CheckboxButton mEnableYumFinderBox;
         CheckboxButton mEnableObjectSearchBox;
         CheckboxButton mEnableFamilyDisplayBox;
+        CheckboxButton mshowTimeLeftEnabledBox;
         CheckboxButton mEnableDangerousTileBox;
         CheckboxButton mGenerateTownPlannerMapsBox;
         CheckboxButton mEnableShowingHeldFoodPips;

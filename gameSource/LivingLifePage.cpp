@@ -212,6 +212,7 @@ char objectSearchEnabled = false;
 unsigned char objectSearchPanelToggleKey = 'j';
 char familyDisplayEnabled = false;
 unsigned char familyDisplayPanelToggleKey = 'p';
+char showTimeLeftEnabled = false;
 char dangerousTileEnabled = false;
 char alwaysShowPlayerLabelEnabled = false;
 
@@ -8726,6 +8727,9 @@ void LivingLifePage::draw( doublePair inViewCenter,
             }
         }
 
+    if( showTimeLeftEnabled ){
+        drawTileVanillaHighlight( moveClickX, moveClickY, {1, 0, 0, 1.0}, false, true );
+    }
     
     float maxFullCellFade = 0.5;
     float maxEmptyCellFade = 0.75;
@@ -17690,12 +17694,17 @@ void LivingLifePage::step() {
                         
                         if( nextDecayTrans != NULL ) {
                             
+                            // this object will move to left/right in future
+                            // force no flip now
                             if( nextDecayTrans->move == 6 ||
                                 nextDecayTrans->move == 7 ) {
-                                // this object will move to left/right in future
-                                // force no flip now
                                 mMapTileFlips[mapI] = false;
                                 }
+                            }
+                            // this object will not move
+                            // save its timer to show in draw()
+                            else if (nextDecayTrans->move == 0){
+                                
                             }
                         
 
