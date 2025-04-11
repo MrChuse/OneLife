@@ -685,6 +685,9 @@ class LivingLifePage : public GamePage, public ActionListener {
         // true if this map spot was something that our
         // player was responsible for placing
         char *mMapPlayerPlacedFlags;
+
+        // saves time left before item decay
+        float *mMapTimeLeftBeforeDecay;
         
         SimpleVector<GridPos> mMapExtraMovingObjectsDestWorldPos;
         SimpleVector<int> mMapExtraMovingObjectsDestObjectIDs;

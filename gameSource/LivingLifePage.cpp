@@ -220,6 +220,8 @@ static JenkinsRandomSource randSource( 340403 );
 static JenkinsRandomSource remapRandSource( 340403 );
 
 
+static double lastFrameTime;
+
 // last cursor pos, updated by getLastMouseScreenPos
 // top left is (0, 0)
 // screenToWorld gives worldMouseX and worldMouseY
@@ -4135,6 +4137,7 @@ void LivingLifePage::clearMap() {
         mMapMoveSpeeds[i] = 0;
         
         mMapTileFlips[i] = false;
+        mMapTimeLeftBeforeDecay[i] = -1;
         
         mMapPlayerPlacedFlags[i] = false;
         }
@@ -4548,6 +4551,7 @@ LivingLifePage::LivingLifePage()
     mMapMoveSpeeds = new double[ mMapD * mMapD ];
 
     mMapTileFlips = new char[ mMapD * mMapD ];
+    mMapTimeLeftBeforeDecay = new float[ mMapD * mMapD ];
     
     mMapPlayerPlacedFlags = new char[ mMapD * mMapD ];
     
@@ -4764,6 +4768,7 @@ LivingLifePage::~LivingLifePage() {
     delete [] mMapMoveSpeeds;
 
     delete [] mMapTileFlips;
+    delete [] mMapTimeLeftBeforeDecay;
     
     delete [] mMapContainedStacks;
     delete [] mMapSubContainedStacks;
@@ -8727,8 +8732,33 @@ void LivingLifePage::draw( doublePair inViewCenter,
             }
         }
 
-    if( showTimeLeftEnabled ){
-        drawTileVanillaHighlight( moveClickX, moveClickY, {1, 0, 0, 1.0}, false, true );
+    if( showTimeLeftEnabled )
+    for( int y=yEnd; y>=yStart; y-- ) {
+        
+        int worldY = y + mMapOffsetY - mMapD / 2;
+        int screenY = CELL_D * ( y + mMapOffsetY - mMapD / 2 );
+        
+        for( int x=xStart; x<=xEnd; x++ ) {
+            
+            int worldX = x + mMapOffsetX - mMapD / 2;
+
+            int mapI = y * mMapD + x;
+            int screenX = CELL_D * ( x + mMapOffsetX - mMapD / 2 );
+            doublePair pos = { (double)screenX, (double)screenY };
+            
+            if (mMapTimeLeftBeforeDecay[mapI] > 0){
+                doublePair drawPos = pos;
+                drawPos.x -= 15;
+                drawPos.y -= 50;
+                setDrawColor( 0,0, 0.6, 1 );
+                char* string;
+                string = autoSprintf("%d", (int)mMapTimeLeftBeforeDecay[mapI]);
+                tinyHandwritingFont->drawString( string, drawPos, alignLeft, 1 / gui_fov_scale_hud );
+                delete[] string;
+                drawPos.y += 50;
+                setDrawColor( 1,1,1,1 );
+            }
+        }
     }
     
     float maxFullCellFade = 0.5;
@@ -14696,6 +14726,7 @@ void LivingLifePage::step() {
         return;
         }
     
+    double timeFromLastFrame = game_getCurrentTime() - lastFrameTime;
 
     if( apocalypseInProgress ) {
         double stepSize = frameRateFactor / ( apocalypseDisplaySeconds * 60.0 );
@@ -14881,9 +14912,16 @@ void LivingLifePage::step() {
         }
     
 
-    // move moving objects
     int numCells = mMapD * mMapD;
     
+    // reduce the decay times
+    for( int i=0; i<numCells; i++ ) {
+        if (mMapTimeLeftBeforeDecay[i] > -1){
+            mMapTimeLeftBeforeDecay[i] -= timeFromLastFrame;
+        }
+    }
+
+    // move moving objects
     for( int i=0; i<numCells; i++ ) {
                 
         if( mMapMoveSpeeds[i] > 0 &&
@@ -16798,7 +16836,8 @@ void LivingLifePage::step() {
             double *newMapMoveSpeeds = new double[ mMapD * mMapD ];
 
 
-            char *newMapTileFlips= new char[ mMapD * mMapD ];
+            char *newMapTileFlips = new char[ mMapD * mMapD ];
+            float *newMapTimeLeftBeforeDecay = new float[ mMapD * mMapD ];
             
             SimpleVector<int> *newMapContainedStacks = 
                 new SimpleVector<int>[ mMapD * mMapD ];
@@ -16849,6 +16888,7 @@ void LivingLifePage::step() {
                 newMapMoveSpeeds[i] = 0;
 
                 newMapTileFlips[i] = false;
+                newMapTimeLeftBeforeDecay[i] = -1;
                 newMapPlayerPlacedFlags[i] = false;
                 
 
@@ -16890,6 +16930,7 @@ void LivingLifePage::step() {
                     newMapMoveSpeeds[i] = mMapMoveSpeeds[oI];
 
                     newMapTileFlips[i] = mMapTileFlips[oI];
+                    newMapTimeLeftBeforeDecay[i] = mMapTimeLeftBeforeDecay[oI];
                     
 
                     newMapContainedStacks[i] = mMapContainedStacks[oI];
@@ -16945,6 +16986,8 @@ void LivingLifePage::step() {
             
             memcpy( mMapTileFlips, newMapTileFlips,
                     mMapD * mMapD * sizeof( char ) );
+            memcpy( mMapTimeLeftBeforeDecay, newMapTimeLeftBeforeDecay,
+                    mMapD * mMapD * sizeof( float ) );
             
             // can't memcpy vectors
             // need to assign them so copy constructors are invoked
@@ -16977,6 +17020,7 @@ void LivingLifePage::step() {
             delete [] newMapMoveSpeeds;
             
             delete [] newMapTileFlips;
+            delete [] newMapTimeLeftBeforeDecay;
             delete [] newMapContainedStacks;
             delete [] newMapSubContainedStacks;
             
@@ -17699,13 +17743,17 @@ void LivingLifePage::step() {
                             if( nextDecayTrans->move == 6 ||
                                 nextDecayTrans->move == 7 ) {
                                 mMapTileFlips[mapI] = false;
-                                }
+                                mMapTimeLeftBeforeDecay[mapI] = -1;
                             }
                             // this object will not move
                             // save its timer to show in draw()
                             else if (nextDecayTrans->move == 0){
-                                
+                                mMapTimeLeftBeforeDecay[mapI] = nextDecayTrans->autoDecaySeconds;
                             }
+                        }
+                        else {
+                            mMapTimeLeftBeforeDecay[mapI] = -1;
+                        }
                         
 
                         if( oldFloor != floorID && floorID > 0 ) {
@@ -23630,6 +23678,8 @@ void LivingLifePage::step() {
         timeMeasures[1] += game_getCurrentTime() - updateStartTime;
         }
     
+    lastFrameTime = game_getCurrentTime();
+
     }
 
 
