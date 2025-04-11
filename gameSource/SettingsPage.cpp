@@ -39,6 +39,7 @@ extern char persistentEmoteEnabled;
 extern char yumFinderEnabled;
 extern char objectSearchEnabled;
 extern char familyDisplayEnabled;
+extern char showTimeLeftEnabled;
 extern char dangerousTileEnabled;
 extern char showPipsOfFoodHeld;
 extern char alwaysShowPlayerLabelEnabled;
@@ -132,11 +133,12 @@ SettingsPage::SettingsPage()
         mEnableYumFinderBox(0, 48, 4),
         mEnableObjectSearchBox(0, 8, 4),
         mEnableFamilyDisplayBox(0, -32, 4),
+        mshowTimeLeftEnabledBox(0, -72, 4),
         mEnableDangerousTileBox(0, -72, 4),
         mGenerateTownPlannerMapsBox( 561, 52, 4 ),
         mEnableShowingHeldFoodPips( 561, 52, 4 ),
         mEnableAlwaysShowPlayerLabelsBox( 561, 52, 4 ) {
-                            
+    // apparently you need to change 12 places to add a checkbox :/
 
     
     // Adding components below in reverse order so cursor tip is drawn on top
@@ -152,6 +154,8 @@ SettingsPage::SettingsPage()
     mGenerateTownPlannerMapsBox.addActionListener( this );
     addComponent(&mEnableDangerousTileBox);
     mEnableDangerousTileBox.addActionListener(this);
+    addComponent(&mshowTimeLeftEnabledBox);
+    mshowTimeLeftEnabledBox.addActionListener(this);
     addComponent(&mEnableFamilyDisplayBox);
     mEnableFamilyDisplayBox.addActionListener(this);
     addComponent(&mEnableObjectSearchBox);
@@ -346,6 +350,7 @@ SettingsPage::SettingsPage()
     mDiscordHideFirstNameInDetails.setCursorTip("HIDE FIRST NAME IN THE STATUS");
 #endif // USE_DISCORD
 
+    // TODO: translate
     mCommandShortcuts.setCursorTip( "SAVED COMMANDS OR SPEECH, TO BE ACCESSED WITH NUM KEYS OR ALT + NUM KEYS." );
     mEnableAdvancedShowUseOnObjectHoverKeybind.setCursorTip(
       "SHOW OBJECT REMAINING USE ON CURSOR HOVER.");
@@ -354,6 +359,7 @@ SettingsPage::SettingsPage()
     mEnableYumFinderBox.setCursorTip( "ENABLE YUM FINDER. PRESS Y TO SHOW YUM" );
     mEnableObjectSearchBox.setCursorTip( "ENABLE OBJECT FINDER. PRESS J TO TOGGLE PANEL." );
     mEnableFamilyDisplayBox.setCursorTip( "ENABLE DISPLAY OF LIST OF FAMILIES. PRESS P TO TOGGLE PANEL." );
+    mshowTimeLeftEnabledBox.setCursorTip( "SHOW SECONDS LEFT BEFORE ITEM DECAYS." );
     mEnableDangerousTileBox.setCursorTip( "HIGHLIGHT DANGEROUS TILES AND BLOCK PATHING INTO THEM ON KEYBOARD." );
     mGenerateTownPlannerMapsBox.setCursorTip( "SAVE MAP FILES TO BE USED IN TOWN PLANNER" );
     mEnableShowingHeldFoodPips.setCursorTip( "SHOW FOOD PIPS OF THE FOOD YOU'RE HOLDING" );
@@ -471,6 +477,10 @@ SettingsPage::SettingsPage()
     familyDisplayEnabled = SettingsManager::getIntSetting("familyDisplayEnabled", 0);
 
     mEnableFamilyDisplayBox.setToggled( familyDisplayEnabled );
+
+    showTimeLeftEnabled = SettingsManager::getIntSetting("showTimeLeftEnabled", 0);
+
+    mshowTimeLeftEnabledBox.setToggled( showTimeLeftEnabled );
 
     dangerousTileEnabled = SettingsManager::getIntSetting("dangerousTileEnabled", 0);
 
@@ -955,6 +965,10 @@ void SettingsPage::actionPerformed( GUIComponent *inTarget ) {
         SettingsManager::setSetting("familyDisplayEnabled",
                                     newSetting);
         }
+    else if ( inTarget == &mshowTimeLeftEnabledBox ) { // what is this code style here? why not just setting = box.getToggled() like i did?
+        showTimeLeftEnabled = mshowTimeLeftEnabledBox.getToggled();
+        SettingsManager::setSetting("showTimeLeftEnabled", showTimeLeftEnabled);
+        }
     else if ( inTarget == &mEnableDangerousTileBox ) {
         int newSetting = mEnableDangerousTileBox.getToggled();
         dangerousTileEnabled = false;
@@ -1255,6 +1269,13 @@ void SettingsPage::draw( doublePair inViewCenter,
 
         drawTextWithShadow("ENABLE FAMILY DISPLAY", pos, alignRight);
         }
+    if (mshowTimeLeftEnabledBox.isVisible()) {
+        doublePair pos = mshowTimeLeftEnabledBox.getPosition();
+        pos.x -= 30;
+        pos.y -= 2;
+
+        drawTextWithShadow("ENABLE SHOWING DECAY", pos, alignRight);
+        }
     if (mEnableDangerousTileBox.isVisible()) {
         doublePair pos = mEnableDangerousTileBox.getPosition();
         pos.x -= 30;
@@ -1302,6 +1323,7 @@ void SettingsPage::step() {
     mEnableYumFinderBox.setIgnoreEvents( blockClicks );
     // mEnableObjectSearchBox.setIgnoreEvents( blockClicks );
     // mEnableFamilyDisplayBox.setIgnoreEvents( blockClicks );
+    // mshowTimeLeftEnabledBox.setIgnoreEvents( blockClicks ); // added here just in case someone removes the comment
     // mEnableDangerousTileBox.setIgnoreEvents( blockClicks );
     // mGenerateTownPlannerMapsBox.setIgnoreEvents( blockClicks );
     
@@ -1446,10 +1468,11 @@ void SettingsPage::updatePage() {
     mEnableYumFinderBox.setPosition(0, lineSpacing * 1);
     mEnableObjectSearchBox.setPosition(0, lineSpacing * 0);
     mEnableFamilyDisplayBox.setPosition(0, lineSpacing * -1);
-    mEnableDangerousTileBox.setPosition(0, lineSpacing * -2);
-    mGenerateTownPlannerMapsBox.setPosition(0, lineSpacing * -3);
-    mEnableShowingHeldFoodPips.setPosition(0, lineSpacing * -4);
-    mEnableAlwaysShowPlayerLabelsBox.setPosition(0, lineSpacing * -5);
+    mshowTimeLeftEnabledBox.setPosition(0, lineSpacing * -2);
+    mEnableDangerousTileBox.setPosition(0, lineSpacing * -3);
+    mGenerateTownPlannerMapsBox.setPosition(0, lineSpacing * -4);
+    mEnableShowingHeldFoodPips.setPosition(0, lineSpacing * -5);
+    mEnableAlwaysShowPlayerLabelsBox.setPosition(0, lineSpacing * -6);
     
     mEnableFOVBox.setVisible( mPage == 0 );
     mEnableCenterCameraBox.setVisible( mPage == 0 );
@@ -1499,6 +1522,7 @@ void SettingsPage::updatePage() {
     mEnableYumFinderBox.setVisible(mPage == 5);
     mEnableObjectSearchBox.setVisible(mPage == 5);
     mEnableFamilyDisplayBox.setVisible(mPage == 5);
+    mshowTimeLeftEnabledBox.setVisible(mPage == 5);
     mEnableDangerousTileBox.setVisible(mPage == 5);
     mGenerateTownPlannerMapsBox.setVisible(mPage == 5);
     mEnableShowingHeldFoodPips.setVisible(mPage == 5);
