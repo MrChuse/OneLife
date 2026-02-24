@@ -47,7 +47,6 @@
 #include "minorGems/util/log/AppLog.h"
 
 #include "minorGems/crypto/hashes/sha1.h"
-#include "OneLife/server/HashTable.h"
 
 #include <stdlib.h>//#include <math.h>
 #include <string>
@@ -4171,12 +4170,7 @@ static void splitAndExpandSprites( const char *inTgaFileName, int inNumSprites,
 
 
 void LivingLifePage::clearRememberedMap(){
-    for (int c = 0; c < mMapBiomesRemembered.size(); c++){
-        int* chunk = *mMapBiomesRemembered.getElement(c);
-        for( int i=0; i<mMapD*mMapD; i++ ) {
-            chunk[i] = -1;
-        }
-    }
+    mMapBiomesRemembered.clear();
 }
 
 void LivingLifePage::clearMap() {
@@ -4228,6 +4222,7 @@ LivingLifePage::LivingLifePage()
           mFirstServerMessagesReceived( 0 ),
           mMapGlobalOffsetSet( false ),
           mMapD( MAP_D ),
+          mMapBiomesRemembered( HashTable<int*>(400 * 400) ),
           mMapOffsetX( 0 ),
           mMapOffsetY( 0 ),
           mEKeyEnabled( false ),
@@ -4598,7 +4593,6 @@ LivingLifePage::LivingLifePage()
 
     mMap = new int[ mMapD * mMapD ];
     SimpleVector<doublePair> mRememberedChunkCoordinates;
-    SimpleVector<int*> mMapBiomesRemembered;
 
     mMapFloors = new int[ mMapD * mMapD ];
     
@@ -4872,8 +4866,10 @@ LivingLifePage::~LivingLifePage() {
     delete [] mMapSubContainedStacks;
     
     delete [] mMap;
-    for(int i = 0; i<mMapBiomesRemembered.size(); i++){
-        delete [] mMapBiomesRemembered.getElement(i);
+    for(int i = 0; i<mRememberedChunkCoordinates.size(); i++){
+        doublePair coords = *mRememberedChunkCoordinates.getElement(i);
+        char found;
+        delete [] mMapBiomesRemembered.lookup((int)coords.x, (int)coords.y, 0, 0, &found); // no need to check for found. Already know that these are used chunks
     }
     delete [] mMapFloors;
 
@@ -7986,17 +7982,9 @@ char LivingLifePage::isCoveredByFloor( int inTileIndex ) {
     }
 
 int* LivingLifePage::findChunkByCoords( int absoluteChunkX, int absoluteChunkY ) {
-    // is it possible to optimize this loop without too much memory?
-    // I just don't know how to store *only* visited chunks
-    int* chunk = NULL;
-    for (int c = 0; c < mRememberedChunkCoordinates.size(); c++) {
-        doublePair chunkCoords = *mRememberedChunkCoordinates.getElement(c);
-        if((int)chunkCoords.x == absoluteChunkX
-        &&
-        (int)chunkCoords.y == absoluteChunkY){
-            chunk = *mMapBiomesRemembered.getElement(c);
-        }
-    }
+    char found = 0;
+    int* chunk = mMapBiomesRemembered.lookup(absoluteChunkX, absoluteChunkY, 0, 0, &found);
+    if (!found) return NULL;
     return chunk;
 }
 
@@ -8284,13 +8272,11 @@ void LivingLifePage::draw( doublePair inViewCenter,
             
             int b = -1;
 
-            char rememberedTile = false;
             int* chunk = NULL;
             // This bounding box is kinda stupid because center of the screen is (32, 32), so this box is too bottom-left.
             // I'm hesitant to put remove *2 from bottom and left due to readability
             char inFOVBounds = x > -mMapD * 2 && y > -mMapD * 2 && x < mMapD * 2 && y < mMapD * 2;
             if( inFOVBounds ) {
-                    rememberedTile = true;
                     chunk = findChunkByCoords(absoluteChunkX, absoluteChunkY);
                     if (chunk != NULL){
                         b = chunk[mapC];
@@ -8318,9 +8304,47 @@ void LivingLifePage::draw( doublePair inViewCenter,
                 }
             }
             
+            // this draws debug info about remembered chunks every 4 tiles
+            // if (posInChunkY % 4 == 0 && posInChunkX % 4 == 0){
+            //     doublePair drawPos = { (double)screenX, (double)screenY };
+            //     setDrawColor( 0,0, getXYRandom( b, b + 300 ), 1 );
+            //     char* string;
+            //     string = autoSprintf("%d,%d", x, y);
+            //     // tinyHandwritingFont->drawString( string, drawPos, alignLeft, 5 / gui_fov_scale_hud );
+            //     tinyHandwritingFont->drawString( string, drawPos, alignLeft);
+            //     delete[] string;
+            //     // drawPos.y += 50;
+            //     // string = autoSprintf("%d,%d", posInChunkX, posInChunkY);
+            //     // tinyHandwritingFont->drawString( string, drawPos, alignLeft, 5 / gui_fov_scale_hud );
+            //     // delete[] string;
+            //     // drawPos.y += 50;
+            //     // string = autoSprintf("b%d,c%d", b, chunk != NULL);
+            //     // tinyHandwritingFont->drawString( string, drawPos, alignLeft, 5 / gui_fov_scale_hud );
+            //     // delete[] string;
+            //     drawPos.y += 50;
+            //     string = autoSprintf("%d,%d", mMapOffsetX, mMapOffsetY);
+            //     // tinyHandwritingFont->drawString( string, drawPos, alignLeft, 5 / gui_fov_scale_hud );
+            //     tinyHandwritingFont->drawString( string, drawPos, alignLeft);
+            //     delete[] string;
+            //     setDrawColor( 1,1,1,1 );
+            // }
+
             GroundSpriteSet *s = NULL;
             
-            setDrawColor( 1, 1, 1, 1 );
+            // area is loaded by the last MAP_CHUNK update
+            if (inBounds && mMap[mapI] != -1){
+                setDrawColor( 1, 1, 1, 1 );
+            }
+            else {
+                setDrawColor( 0.5, 0.5, 0.5, 1 );
+            }
+            // this draws chunks in alternating red-blue checkerboard pattern
+            // if ((absoluteChunkX + absoluteChunkY) % 2 == 0){
+            //     setDrawColor( 1, 0.5, 0.5, 1 );
+            // }
+            // else{
+            //     setDrawColor( 0.5, 0.5, 1, 1 );
+            // }
 
             if( b >= 0 && b < groundSpritesArraySize ) {
                 s = groundSprites[ b ];
@@ -8354,28 +8378,6 @@ void LivingLifePage::draw( doublePair inViewCenter,
                             
                 doublePair pos = { (double)screenX, (double)screenY };
 
-                // this draws debug info about remembered chunks every 4 tiles
-                // if (posInChunkY % 4 == 0 && posInChunkX % 4 == 0){
-                //     doublePair drawPos = pos;
-                //     setDrawColor( 0,0, getXYRandom( b, b + 300 ), 1 );
-                //     char* string;
-                //     string = autoSprintf("%d,%d", absoluteChunkX, absoluteChunkY);
-                //     tinyHandwritingFont->drawString( string, drawPos, alignLeft, 5 / gui_fov_scale_hud );
-                //     delete[] string;
-                //     drawPos.y += 50;
-                //     string = autoSprintf("%d,%d", posInChunkX, posInChunkY);
-                //     tinyHandwritingFont->drawString( string, drawPos, alignLeft, 5 / gui_fov_scale_hud );
-                //     delete[] string;
-                //     drawPos.y += 50;
-                //     string = autoSprintf("b%d,c%d", b, chunk != NULL);
-                //     tinyHandwritingFont->drawString( string, drawPos, alignLeft, 5 / gui_fov_scale_hud );
-                //     delete[] string;
-                //     drawPos.y += 50;
-                //     string = autoSprintf("%d,%d", mMapOffsetX, mMapOffsetY);
-                //     tinyHandwritingFont->drawString( string, drawPos, alignLeft, 5 / gui_fov_scale_hud );
-                //     delete[] string;
-                //     setDrawColor( 1,1,1,1 );
-                // }
 
                 // wrap around
                 int setY = tileY % s->numTilesHigh;
@@ -8478,9 +8480,7 @@ void LivingLifePage::draw( doublePair inViewCenter,
                         int* leftChunk = findChunkByCoords(leftChunkX, absoluteChunkY);
                         if (leftChunk != NULL){
                             // mapC-1 would bring us to upperleft tile, so we should +mMapD to go back to current line
-                            printf("leftChunkCoord: %d\n", mapC-1+mMapD);
-                            fflush(stdout);
-                            //leftB = leftChunk[mapC-1+mMapD];
+                            leftB = leftChunk[mapC-1+mMapD];
                         }
                     }
                     if( isInBounds( posInChunkX, posInChunkY + 1, mMapD ) ) {    
@@ -17713,7 +17713,7 @@ void LivingLifePage::step() {
                                 for (int c = 0; c < mMapD * mMapD; c++){
                                     chunkBiome[c] = -1;
                                 }
-                                mMapBiomesRemembered.push_back(chunkBiome);
+                                mMapBiomesRemembered.insert(absoluteChunkX, absoluteChunkY, 0, 0, chunkBiome);
                                 doublePair chunkCoords;
                                 chunkCoords.x = (double)absoluteChunkX;
                                 chunkCoords.y = (double)absoluteChunkY;
