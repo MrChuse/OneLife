@@ -1357,7 +1357,11 @@ static int getBaseMap( int inX, int inY, char *outGridPlacement = NULL ) {
    
         return edgeObjectID;
         }
-   
+    
+    if( numBiomes == 0 ) {
+        return 0;
+        }
+
     int cachedID = mapCacheLookup( inX, inY, outGridPlacement );
    
     if( cachedID != -1 ) {
@@ -5224,6 +5228,7 @@ int checkDecayObject( int inX, int inY, int inID ) {
                 }
  
  
+            char inPlaceTransApplicable = false;
            
             if( t->move != 0 && t->desiredMoveDist > 0 ) {
                 // moving
@@ -5379,7 +5384,7 @@ int checkDecayObject( int inX, int inY, int inID ) {
                                         avoidFloor ) {
                                         int floorID = getMapFloor( testX, testY );
                                     
-                                        if( floorID > 0 ) {
+                                        if( floorID > 0 && strstr( getObject( floorID )->description, "groundLikeFloor" ) == NULL ) {
                                             blockedByFloor = true;
                                             }
                                         }
@@ -5538,7 +5543,7 @@ int checkDecayObject( int inX, int inY, int inID ) {
                             avoidFloor ) {
                             int floorID = getMapFloor( testX, testY );
                         
-                            if( floorID > 0 ) {
+                            if( floorID > 0 && strstr( getObject( floorID )->description, "groundLikeFloor" ) == NULL ) {
                                 blockedByFloor = true;
                                 }
                             }
@@ -5678,7 +5683,7 @@ int checkDecayObject( int inX, int inY, int inID ) {
                                         int floorID = 
                                             getMapFloor( testX, testY );
                         
-                                        if( floorID > 0 ) {
+                                        if( floorID > 0 && strstr( getObject( floorID )->description, "groundLikeFloor" ) == NULL ) {
                                             // blocked by floor
                                             continue;
                                             }
@@ -5919,6 +5924,7 @@ int checkDecayObject( int inX, int inY, int inID ) {
                                 inPlaceTrans->newTarget > 0 ) {
                                
                                 newID = inPlaceTrans->newTarget;
+                                inPlaceTransApplicable = true;
                                 }
                             }
                         }
@@ -5943,8 +5949,7 @@ int checkDecayObject( int inX, int inY, int inID ) {
                     oldSlots == newSlots
                     ) {
                         
-                    int numContained;
-                    getContained( inX, inY, &numContained );
+                    int numContained = getNumContained(inX, inY);
                         
                     if( numContained > 0 ) {
                         
@@ -6045,6 +6050,20 @@ int checkDecayObject( int inX, int inY, int inID ) {
  
             // cannot pass newDecayT here because the pointer fuckery in getMetaTrans
             TransRecord *furtherDecay = getTrans( -1, newID );
+            if( inPlaceTransApplicable ) {
+                // we're doing in-place transition here
+                // meaning the NSEW move is blocked
+                // e.g. water is stuck
+                // stop always-live-tracking further decay
+                // to save server resources
+                furtherDecay = NULL;
+                }
+            if( !inPlaceTransApplicable && t->move > 3 && t->move < 8 ) {
+                // an actual NSEW move, not stuck ones
+                // look at the 3x3 region to re-activate the decay tracking
+                lookAtRegion(inX - 1, inY - 1, inX + 1, inY + 1);
+                }
+            
             setEtaDecay( newX, newY, mapETA, furtherDecay );
             }
  
@@ -6474,7 +6493,8 @@ int getTweakedBaseMap( int inX, int inY ) {
                     }
                 }
             }
-        else if( !wasGridPlacement && getObjectHeight( result ) < CELL_D ) {
+        else if( result != edgeObjectID && 
+                 !wasGridPlacement && getObjectHeight( result ) < CELL_D ) {
             // a short object should be here
             // and it wasn't forced by a grid placement
  

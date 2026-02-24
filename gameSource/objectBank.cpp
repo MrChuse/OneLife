@@ -758,6 +758,30 @@ static void setupDefaultObject( ObjectRecord *inR ) {
 
 
 
+static void setupYumParent( ObjectRecord *inR ) {
+    inR->yumParentID = -1;
+
+    char *pos = strstr( inR->description, "+yum" );
+
+    if( pos != NULL ) {
+        sscanf( pos, "+yum%d", &( inR->yumParentID ) );
+        }
+    }
+
+
+
+static void setupSlotsInvis( ObjectRecord *inR ) {
+    inR->slotsInvis = false;
+    char *pos = strstr( inR->description, "+slotsInvis" );
+
+    if( pos != NULL ) {
+        inR->slotsInvis = true;    
+        }
+    }
+
+    
+
+
 
 int getMaxSpeechPipeIndex() {
     return maxSpeechPipeIndex;
@@ -833,6 +857,10 @@ float initObjectBankStep() {
 
                 setupAlcohol( r );
 
+                setupYumParent( r );
+                
+                setupSlotsInvis( r );
+                
 
                 // do this later, after we parse floorHugging
                 // setupWall( r );
@@ -2870,6 +2898,10 @@ void resaveAll() {
 
 
 ObjectRecord *getObject( int inID, char inNoDefault ) {
+    if( inID == -1 ) {
+        return NULL;
+        }
+    
     inID = extractObjectID( inID );
     
     if( inID < mapSize ) {
@@ -2955,7 +2987,22 @@ SimpleVector<int> *getMonumentCallObjects() {
     }
 
 
-
+static int getIDFromSearch( const char *inSearch ) {
+        
+    int len = strlen( inSearch );
+    
+    for( int i=0; i<len; i++ ) {
+        if( ! isdigit( inSearch[i] ) ) {
+            return -1;
+            }
+        }
+    
+    int readInt = -1;
+    
+    sscanf( inSearch, "%d", &readInt );
+    
+    return readInt;
+    }
     
 
 
@@ -3007,14 +3054,13 @@ ObjectRecord **searchObjects( const char *inSearch,
         *outNumResults = results.size();
         return results.getElementArray();
         }
-    else if( strstr( inSearch, "##" ) != NULL ) {
+    else if( getIDFromSearch( inSearch ) != -1 ) {
         // search object by ID
         // also returns the use dummies
         
         SimpleVector< ObjectRecord *> results;
-        char* search = stringDuplicate( inSearch );
-        int id = atoi( &( search[2] ) );
-        if( idMap[id] != NULL ) {
+        int id = atoi( inSearch );
+        if( id < mapSize && idMap[id] != NULL ) {
             ObjectRecord *parent = idMap[id];
             if( inNumToSkip == 0 ) results.push_back( parent );
             if( parent->numUses > 1 && parent->useDummyIDs != NULL ) {
@@ -3035,7 +3081,6 @@ ObjectRecord **searchObjects( const char *inSearch,
                 *outNumRemaining = 0;
                 }
             }
-        delete [] search;
             
         *outNumResults = results.size();
         return results.getElementArray();
@@ -3912,6 +3957,10 @@ int addObject( const char *inDescription,
     setupNoBackAccess( r );            
 
     setupAlcohol( r );
+    
+    setupYumParent( r );
+    
+    setupSlotsInvis( r );
 
     setupWall( r );
 
@@ -4089,6 +4138,12 @@ HoldingPos drawObject( ObjectRecord *inObject, int inDrawBehindSlots,
                        char inHideAllLimbs,
                        char inHeldNotInPlaceYet,
                        ClothingSet inClothing ) {
+
+    HoldingPos returnHoldingPos = { false, {0, 0}, 0 };
+    
+    if( inObject == NULL ) {
+        return returnHoldingPos;
+        }
     
     if( drawingContained ) { 
         inPos.y += getLivingLifeBouncingYOffset( inObject->id );
@@ -4097,8 +4152,6 @@ HoldingPos drawObject( ObjectRecord *inObject, int inDrawBehindSlots,
     if( inObject->noFlip ) {
         inFlipH = false;
         }
-
-    HoldingPos returnHoldingPos = { false, {0, 0}, 0 };
     
     SimpleVector <int> frontArmIndices;
     getFrontArmIndices( inObject, inAge, &frontArmIndices );
@@ -4501,6 +4554,15 @@ HoldingPos drawObject( ObjectRecord *inObject, doublePair inPos, double inRot,
                 inHideAllLimbs,
                 inHeldNotInPlaceYet,
                 inClothing );
+    
+    if( inObject == NULL ) {
+        return drawObject( inObject, 1, inPos, inRot, inWorn, inFlipH, inAge, 
+                           inHideClosestArm,
+                           inHideAllLimbs,
+                           inHeldNotInPlaceYet,
+                           inClothing );
+        }
+    
 
     // char allBehind = true;
     // for( int i=0; i< inObject->numSprites; i++ ) {
@@ -4517,7 +4579,8 @@ HoldingPos drawObject( ObjectRecord *inObject, doublePair inPos, double inRot,
     if( inNumContained > numSlots ) {
         inNumContained = numSlots;
         }
-    
+
+    if( ! inObject->slotsInvis )
     for( int i=0; i<inNumContained; i++ ) {
 
         ObjectRecord *contained = getObject( inContainedIDs[i] );
@@ -5226,6 +5289,13 @@ double getClosestObjectPart( ObjectRecord *inObject,
     *outClothing = -1;
     *outSlot = -1;
 
+    double smallestDist = 9999999;
+
+    if( inObject == NULL ) {
+        return smallestDist;
+        }
+    
+
     doublePair headPos = {0,0};
 
     int headIndex = getHeadIndex( inObject, inAge );
@@ -5544,7 +5614,6 @@ double getClosestObjectPart( ObjectRecord *inObject,
         }
     
     
-    double smallestDist = 9999999;
 
     char closestBehindSlots = false;
     
@@ -6487,7 +6556,12 @@ void getArmHoldingParameters( ObjectRecord *inHeldObject,
             }
         else if( inHeldObject->rideable ) {
             *outHideClosestArm = 0;
-            *outHideAllLimbs = true;
+
+            // show limbs when riding a bike or sitting
+            if( inHeldObject->ridingAnimationIndex != biking &&
+                inHeldObject->ridingAnimationIndex != sitting )
+                *outHideAllLimbs = true;
+
             }
         else {
             // try hiding no arms, but freezing them instead

@@ -183,6 +183,8 @@ typedef struct LiveObject {
         
 
         float heat;
+        float foodDrainTime;
+        float indoorBonusTime;
         
 
         int numContained;
@@ -505,6 +507,7 @@ class LivingLifePage : public GamePage, public ActionListener {
         void vogMoveCamera( float newScreenViewCenterX, float newScreenViewCenterY );
 
         bool isHoveringPicker( float x, float y );
+        char isHoveringTempMeter();
         char isAnyUIHovered();
 
         DisplayedFamily* getOurFamily();
@@ -542,9 +545,10 @@ class LivingLifePage : public GamePage, public ActionListener {
         void pickUpBabyInRange();
         void pickUpBaby( int x, int y );
         void useBackpack( bool replace = false );
-        void usePocket( int clothingID );
+        void usePocket( int clothingID, bool replace = false );
         void useOnSelf();
-        void takeOffBackpack();
+        void takeOffClothing();
+        void takeOffBackpack( int useOrRemove = 0 );
         void setOurSendPosXY(int &x, int &y);
         bool isCharKey(unsigned char c, unsigned char key);
         void drawTileVanillaHighlight( int x, int y, FloatColor floatColor, bool flashing = false, bool border = true );
@@ -993,6 +997,22 @@ class LivingLifePage : public GamePage, public ActionListener {
         SpriteHandle mTeaserArrowVeryShortSprite;
         SpriteHandle mLineSegmentSprite;
         
+
+        SpriteHandle mPhotoDisplaySprites[ NUM_HINT_SHEETS ];
+        
+        char *mPhotoToShowIDs[ NUM_HINT_SHEETS ];
+        char mPhotoToShowAreNegative[ NUM_HINT_SHEETS ];
+        
+        SpriteHandle mPhotoToShowSprites[ NUM_HINT_SHEETS ];
+
+        doublePair mPhotoDisplayHideOffset[ NUM_HINT_SHEETS ];
+        doublePair mPhotoDisplayPosOffset[ NUM_HINT_SHEETS ];
+        doublePair mPhotoDisplayPosTargetOffset[ NUM_HINT_SHEETS ];
+        
+        double mPhotoDisplayStartTime[ NUM_HINT_SHEETS ];
+        
+        int mLivePhotoSheetIndex;        
+
         
         // not visible, but used for its text filtering
         // capabilities
@@ -1107,6 +1127,8 @@ class LivingLifePage : public GamePage, public ActionListener {
         char mZKeyDown;
         
         char mXKeyDown;
+        
+        char mGraveKeyDown;
 
         
         //FOV
@@ -1152,6 +1174,8 @@ class LivingLifePage : public GamePage, public ActionListener {
         void displayGlobalMessage( char *inMessage, char forceRight = false, char forceSingleLine = false );
         
 
+
+        void displayPhoto( const char *inPhotoID, char inNegative );
     };
 
 

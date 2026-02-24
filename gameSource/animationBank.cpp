@@ -645,6 +645,10 @@ int getNumExtraAnim( int inID ) {
 
 
 AnimationRecord *getAnimation( int inID, AnimType inType ) {
+    if( inID == -1 ) {
+        return NULL;
+        }
+    
     if( inID < mapSize ) {
         if( inType < endAnimType && inType != ground2 ) {
             return idMap[inID][inType];
@@ -3411,7 +3415,8 @@ void drawObjectAnim( int inObjectID, AnimationRecord *inAnim,
     // all of these are in contained mode
     setDrawnObjectContained( true );
     
-
+    
+    if( ! obj->slotsInvis )
     for( int i=0; i<obj->numSlots; i++ ) {
         if( i < inNumContained ) {
 
