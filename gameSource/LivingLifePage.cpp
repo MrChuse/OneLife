@@ -11106,15 +11106,15 @@ void LivingLifePage::draw( doublePair inViewCenter,
     
     if( showNet ) {
         doublePair pos = lastScreenViewCenter;
-        pos.x -= 600;
-        pos.y += 300;
+        pos.x -= 600 * gui_fov_scale_hud;
+        pos.y += 300 * gui_fov_scale_hud;
         
         if( showFPS ) {
-            pos.y -= 50;
+            pos.y -= 300 * gui_fov_scale_hud;
             }
         // covered by tutorial sheets
         if( mTutorialNumber > 0 || mGlobalMessageShowing ) {
-            pos.y -= 50;
+            pos.y -= 50 * gui_fov_scale_hud;
             }
 
         double curTime = game_getCurrentTime();
@@ -11164,27 +11164,27 @@ void LivingLifePage::draw( doublePair inViewCenter,
             
             doublePair graphPos = pos;
             
-            graphPos.x += 20 + numbersFontFixed->measureString( netStringA );
-            graphPos.y -= 20;
+            graphPos.x += (20 + numbersFontFixed->measureString( netStringA )) * gui_fov_scale_hud;
+            graphPos.y -= 20 * gui_fov_scale_hud;
 
             FloatColor yellow = { 1, 1, 0, 1 };
             drawGraph( &messagesOutHistoryGraph, graphPos, yellow );
 
-            graphPos.x += historyGraphLength + 10;
+            graphPos.x += (historyGraphLength + 10) * gui_fov_scale_hud;
             drawGraph( &messagesInHistoryGraph, graphPos, yellow );
 
-            pos.y -= 50;
+            pos.y -= 50 * gui_fov_scale_hud;
             
             drawFixedShadowStringWhite( netStringB, pos );
             
             graphPos = pos;
             
-            graphPos.x += 20 + numbersFontFixed->measureString( netStringB );
-            graphPos.y -= 20;
+            graphPos.x += (20 + numbersFontFixed->measureString( netStringB )) * gui_fov_scale_hud;
+            graphPos.y -= 20 * gui_fov_scale_hud;
 
             drawGraph( &bytesOutHistoryGraph, graphPos, yellow );
 
-            graphPos.x += historyGraphLength + 10;
+            graphPos.x += (historyGraphLength + 10) * gui_fov_scale_hud;
             drawGraph( &bytesInHistoryGraph, graphPos, yellow );
 
 
@@ -11204,11 +11204,11 @@ void LivingLifePage::draw( doublePair inViewCenter,
             }
         
         doublePair pos = lastScreenViewCenter;
-        pos.x += 300;
-        pos.y += 300;
+        pos.x += 300 * gui_fov_scale_hud;
+        pos.y += 300 * gui_fov_scale_hud;
         
         if( mTutorialNumber > 0 || mGlobalMessageShowing ) {
-            pos.y -= 50;
+            pos.y -= 50 * gui_fov_scale_hud;
             }
 
         char *pingString;
